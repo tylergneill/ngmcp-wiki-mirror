@@ -1,0 +1,3 @@
+# NGMCP Wiki Mirror
+
+Served using GitHub Pages at https://tylergneill.github.io/ngmcp-wiki-mirror.
