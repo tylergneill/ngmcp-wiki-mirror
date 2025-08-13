@@ -4,7 +4,7 @@
 <head>
     <meta charset="UTF-8">
     <title>NGMCP Wiki Full-Text Search</title>
-    <link href="/docs/pagefind/pagefind-ui.css" rel="stylesheet">
+    <link href="./docs/pagefind/pagefind-ui.css" rel="stylesheet">
     <style>
         .pagination-controls {
             margin-top: 1em;
@@ -241,8 +241,8 @@
         };
 
         window.addEventListener('DOMContentLoaded', async (event) => {
-            pagefind = await import("/docs/pagefind/pagefind.js");
-            await pagefind.options({ bundlePath: "/docs/pagefind/" });
+            pagefind = await import("./docs/pagefind/pagefind.js");
+            await pagefind.options({ bundlePath: "./docs/pagefind/" });
             await pagefind.init();
 
             searchInput.addEventListener('input', performSearch);
