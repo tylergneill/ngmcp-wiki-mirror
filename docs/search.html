@@ -242,7 +242,7 @@
 
         window.addEventListener('DOMContentLoaded', async (event) => {
             pagefind = await import("/pagefind/pagefind.js");
-            await pagefind.options({ bundlePath: "/pagefind/" });
+            await pagefind.options({ bundlePath: "./pagefind/" });
             await pagefind.init();
 
             searchInput.addEventListener('input', performSearch);
