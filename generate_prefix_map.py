@@ -57,12 +57,14 @@ class DualAccNoParser(HTMLParser):
 def extract_number(acc_no):
     if not acc_no:
         return None
-    match = re.search(r'[\d/.-]+', acc_no)
+    match = re.search(r'[\d/.\/\\-]+', acc_no)
     if match:
         return match.group(0).replace('-', '/')
     return None
 
 def normalize_acc_no(acc_no):
+    if acc_no == '5\\3313':
+        breakpoint()
     if not acc_no:
         return None, False
     
@@ -110,8 +112,6 @@ def create_prefix_map_v6():
             try:
                 with open(filepath, 'r', encoding='utf-8') as f:
                     content = f.read()
-                    if 'E 423-32 Kubjikāmantra' in content:
-                        breakpoint()
                     parser = DualAccNoParser()
                     parser.feed(content)
                     
@@ -134,7 +134,8 @@ def create_prefix_map_v6():
                         nak_was_added_by_system = True
                     elif norm_acc_no_2: # Rule 2: otherwise, look in the "Place of Deposit" and prefix to acc_no_2
                         if place_of_deposit:
-                            final_acc_no = f"{place_of_deposit} {norm_acc_no_2}"
+                            norm_acc_no_2 = f"{place_of_deposit} {norm_acc_no_2}"
+                            final_acc_no = norm_acc_no_2
                         else:
                             final_acc_no = norm_acc_no_2
                     elif norm_acc_no_1: # Rule 3: if using acc_no_1 bc acc_no_2 is not available, use as-is
@@ -185,7 +186,6 @@ def create_prefix_map_v6():
         f"Files with differing accession numbers: {differences_count}\n"
         f"Files where 'NAK' was supplied by system: {len(nak_supplied_files)}\n"
         f"Files still without any accession number: {total_files_processed - files_with_prefix}\n"
-        f"\nA file named 'accession_number_problems.txt' has been created with the list of files with differing accession numbers and files without any accession number.\n"
     )
     with open('accession_number_problems.txt', 'a', encoding='utf-8') as diff_file:
         diff_file.write(summary)
