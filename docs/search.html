@@ -1,4 +1,3 @@
-
 <!DOCTYPE html>
 <html>
 <head>
@@ -74,6 +73,7 @@
         let currentResults = [];
         let currentPage = 1;
         let resultsPerPage = 25;
+        let map = {};
 
         const resultsContainer = document.getElementById('results-container');
         const paginationContainer = document.getElementById('pagination-container');
@@ -116,6 +116,42 @@
             "velthuis": "Velthuis"
         };
 
+        function lookup(url) {
+            const u = new URL(url, location.origin);
+            const path  = u.pathname;                  // encoded
+            const name  = path.split("/").pop();       // encoded basename
+            const dpath = decodeURIComponent(path);
+            const dname = decodeURIComponent(name);
+            const urlKey = name.replace(/%20/g, " ");
+            return map[urlKey] ?? map[path] ?? map[dpath] ?? map[name] ?? map[dname] ?? map["*"] ?? null;
+        }
+
+        function applyPrefixes(res) {
+            const hit = lookup(res.url);
+            if (!hit) return;
+
+            const tPref = typeof hit === "string" ? hit : (hit.title_prefix || "");
+            const ePref = typeof hit === "object" ? (hit.excerpt_prefix || "") : "";
+
+            if (tPref && res.meta?.title && !res.meta.title.startsWith(tPref)) {
+                res.meta.title = tPref + res.meta.title;
+            }
+            if (ePref && res.excerpt && !res.excerpt.startsWith(ePref)) {
+                res.excerpt = ePref + res.excerpt;
+            }
+
+            if (Array.isArray(res.sub_results)) {
+                for (const s of res.sub_results) {
+                    if (tPref && s.meta?.title && !s.meta.title.startsWith(tPref)) {
+                        s.meta.title = tPref + s.meta.title;
+                    }
+                    if (ePref && s.excerpt && !s.excerpt.startsWith(ePref)) {
+                        s.excerpt = ePref + s.excerpt;
+                    }
+                }
+            }
+        }
+
         const populateSchemesDropdown = (showAll) => {
             transliterationScheme.innerHTML = ''; // Clear existing options
 
@@ -149,6 +185,7 @@
 
             paginatedResults.forEach(async (result) => {
                 const data = await result.data();
+                applyPrefixes(data);
                 const resultElement = document.createElement('div');
                 resultElement.innerHTML = `<h3><a href="${data.url}">${data.meta.title}</a></h3><p>${data.excerpt}</p>`;
                 resultsContainer.appendChild(resultElement);
@@ -241,6 +278,7 @@
         };
 
         window.addEventListener('DOMContentLoaded', async (event) => {
+            map = await fetch("./prefix-map.json").then(r => r.json()).catch(() => ({}));
             pagefind = await import("./pagefind/pagefind.js");
             await pagefind.options({ bundlePath: "./pagefind/" });
             await pagefind.init();
