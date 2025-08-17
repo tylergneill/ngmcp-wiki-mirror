@@ -54,17 +54,8 @@ class DualAccNoParser(HTMLParser):
                 self.place_of_deposit = cleaned_data.lstrip(':').strip()
             self.is_place_of_deposit_label = False
 
-def extract_number(acc_no):
-    if not acc_no:
-        return None
-    match = re.search(r'[\d/.\/\\-]+', acc_no)
-    if match:
-        return match.group(0).replace('-', '/')
-    return None
 
 def normalize_acc_no(acc_no):
-    if acc_no == '5\\3313':
-        breakpoint()
     if not acc_no:
         return None, False
     
@@ -75,17 +66,14 @@ def normalize_acc_no(acc_no):
     cleaned_acc_no = acc_no.strip()
     # Remove common prefixes/suffixes that are not part of the actual number
     cleaned_acc_no = re.sub(r'^(Acc\.? No\.?|Accession No\.?)\s*[:-]?\s*', '', cleaned_acc_no, flags=re.IGNORECASE).strip()
-    cleaned_acc_no = re.sub(r'\s*\(.*?\)$', '', cleaned_acc_no).strip() # Remove anything in parentheses at the end
+    # cleaned_acc_no = re.sub(r'\s*\(.*?\)$', '', cleaned_acc_no).strip() # Remove anything in parentheses at the end
     
     # If NAK was present in the original, remove it from the cleaned string for now,
     # as we'll handle prefixing in the main logic.
     if nak_present:
         cleaned_acc_no = cleaned_acc_no.replace('NAK', '', 1).replace('nak', '', 1).strip()
 
-    # Extract the number part if it exists, otherwise use the cleaned string
-    number_part = extract_number(cleaned_acc_no)
-    
-    return number_part if number_part else (cleaned_acc_no if cleaned_acc_no else None), nak_present
+    return (cleaned_acc_no if cleaned_acc_no else None), nak_present
 
 def create_prefix_map_v6():
     prefix_map = {"*": "(Acc. No. missing) · "}
