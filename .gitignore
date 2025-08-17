@@ -54,5 +54,6 @@ venv*/
 # macOS
 .DS_Store
 
-pagefind
+/pagefind
+!docs/pagefind/
 *.tar.gz
