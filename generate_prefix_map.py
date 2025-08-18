@@ -54,26 +54,25 @@ class DualAccNoParser(HTMLParser):
                 self.place_of_deposit = cleaned_data.lstrip(':').strip()
             self.is_place_of_deposit_label = False
 
-
-def normalize_acc_no(acc_no):
+def normalize_acc_no_for_comparison(acc_no):
     if not acc_no:
-        return None, False
-    
-    original_acc_no_upper = acc_no.upper()
-    nak_present = "NAK" in original_acc_no_upper
+        return None
+    # Strip off word prefixes (like "Acc. No.", "Accession No.")
+    cleaned_acc_no = re.sub(r'^(Acc\. No\.?|Accession No\.?)\s*[:-]?\s*', '', acc_no, flags=re.IGNORECASE).strip()
 
-    # Clean up the accession number string
-    cleaned_acc_no = acc_no.strip()
-    # Remove common prefixes/suffixes that are not part of the actual number
-    cleaned_acc_no = re.sub(r'^(Acc\.? No\.?|Accession No\.?)\s*[:-]?\s*', '', cleaned_acc_no, flags=re.IGNORECASE).strip()
-    # cleaned_acc_no = re.sub(r'\s*\(.*?\)$', '', cleaned_acc_no).strip() # Remove anything in parentheses at the end
-    
-    # If NAK was present in the original, remove it from the cleaned string for now,
-    # as we'll handle prefixing in the main logic.
-    if nak_present:
-        cleaned_acc_no = cleaned_acc_no.replace('NAK', '', 1).replace('nak', '', 1).strip()
+    # Phase 1: General Separator Normalization
+    # Convert /, \, -, ., ,, and space to underscore
+    cleaned_acc_no = re.sub(r'[\/\\., -]', '_', cleaned_acc_no)
+    # Replace multiple underscores with a single underscore
+    cleaned_acc_no = re.sub(r'_+', '_', cleaned_acc_no)
+    # Remove leading/trailing underscores
+    cleaned_acc_no = cleaned_acc_no.strip('_')
 
-    return (cleaned_acc_no if cleaned_acc_no else None), nak_present
+    # Phase 2: Numerical Portion Extraction
+    # Keep only digits, underscores, and parentheses
+    numerical_portion = re.sub(r'[^\d_()]', '', cleaned_acc_no).strip('_')
+
+    return numerical_portion if numerical_portion else None
 
 def create_prefix_map_v6():
     prefix_map = {"*": "(Acc. No. missing) · "}
@@ -81,11 +80,11 @@ def create_prefix_map_v6():
     
     missing_acc_no_1_count = 0
     missing_acc_no_2_count = 0
-    differences_count = 0
+    differing_acc_numbers_list = [] # To store specific items
+    files_without_any_acc_no = [] # To store specific items
+    
     total_files_processed = 0
     files_with_prefix = 0
-    files_without_acc_no = []
-    nak_supplied_files = []
 
     with open('accession_number_problems.txt', 'w', encoding='utf-8') as diff_file:
         diff_file.write("Files with differing accession numbers:\n")
@@ -103,63 +102,54 @@ def create_prefix_map_v6():
                     parser = DualAccNoParser()
                     parser.feed(content)
                     
-                    acc_no_1 = parser.acc_no_1
-                    acc_no_2 = parser.acc_no_2
-                    place_of_deposit = parser.place_of_deposit
+                    raw_acc_no_1 = parser.acc_no_1
+                    raw_acc_no_2 = parser.acc_no_2
 
-                    # Normalize individual accession numbers first
-                    norm_acc_no_1, nak_in_1_original = normalize_acc_no(acc_no_1)
-                    norm_acc_no_2, nak_in_2_original = normalize_acc_no(acc_no_2)
-
-                    final_acc_no = None
-                    nak_was_added_by_system = False
-
-                    if nak_in_1_original: # Rule 1: if 'NAK' in acc_no_1
-                        if norm_acc_no_2:
-                            final_acc_no = "NAK " + norm_acc_no_2
-                        else:
-                            final_acc_no = "NAK " + (norm_acc_no_1 if norm_acc_no_1 else "")
-                        nak_was_added_by_system = True
-                    elif norm_acc_no_2: # Rule 2: otherwise, look in the "Place of Deposit" and prefix to acc_no_2
-                        if place_of_deposit:
-                            norm_acc_no_2 = f"{place_of_deposit} {norm_acc_no_2}"
-                            final_acc_no = norm_acc_no_2
-                        else:
-                            final_acc_no = norm_acc_no_2
-                    elif norm_acc_no_1: # Rule 3: if using acc_no_1 bc acc_no_2 is not available, use as-is
-                        final_acc_no = norm_acc_no_1
-
-                    if final_acc_no and nak_was_added_by_system:
-                        nak_supplied_files.append(f"- {filename}: '{acc_no_2 if acc_no_2 else acc_no_1}' -> '{final_acc_no}'")
-
-                    if not acc_no_1:
+                    # Update missing counts based on raw data
+                    if not raw_acc_no_1:
                         missing_acc_no_1_count += 1
-                    if not acc_no_2:
+                    if not raw_acc_no_2:
                         missing_acc_no_2_count += 1
 
-                    # The difference check should use the normalized numbers without the NAK/Place of Deposit prefixing
-                    # to compare the core accession numbers.
-                    if acc_no_1 and acc_no_2 and norm_acc_no_1 != norm_acc_no_2:
-                        differences_count += 1
-                        diff_file.write(f"- {filename}: 'Acc No.': '{acc_no_1}' ('{norm_acc_no_1}'), 'Accession No.': '{acc_no_2}' ('{norm_acc_no_2}')\n")
+                    # Normalize for comparison
+                    norm_1_for_comp = normalize_acc_no_for_comparison(raw_acc_no_1)
+                    norm_2_for_comp = normalize_acc_no_for_comparison(raw_acc_no_2)
 
-                    if final_acc_no:
-                        prefix = f"{final_acc_no} · "
-                        prefix_map[filename] = prefix
-                        files_with_prefix += 1
+                    # Check for differing accession numbers (naive comparison)
+                    if raw_acc_no_1 and raw_acc_no_2 and norm_1_for_comp != norm_2_for_comp:
+                        differing_acc_numbers_list.append(f"- {filename}: 'Acc No.': '{raw_acc_no_1}' ('{norm_1_for_comp}'), 'Accession No.': '{raw_acc_no_2}' ('{norm_2_for_comp}')")
+
+                    # Build the prefix string
+                    prefix_parts = []
+                    if raw_acc_no_1:
+                        prefix_parts.append(raw_acc_no_1)
+                        # If acc_no_2 exists and is different after normalization, add it too
+                        if raw_acc_no_2 and norm_1_for_comp != norm_2_for_comp:
+                            prefix_parts.append(raw_acc_no_2)
+                    elif raw_acc_no_2: # Only if acc_no_1 is missing
+                        prefix_parts.append(raw_acc_no_2)
+                    
+                    final_prefix_str = ""
+                    if prefix_parts:
+                        final_prefix_str = " · ".join(prefix_parts) + " · "
                     else:
-                        files_without_acc_no.append(filename)
+                        final_prefix_str = "(Acc. No. missing) · "
+                        files_without_any_acc_no.append(f"- {filename}")
+
+                    prefix_map[filename] = final_prefix_str
+                    if final_prefix_str != "(Acc. No. missing) · ":
+                        files_with_prefix += 1
 
             except Exception as e:
                 print(f"Error processing file {filepath}: {e}")
 
-        diff_file.write("\n\nFiles where 'NAK' was supplied:\n")
-        for entry in nak_supplied_files:
+        # Write differing accession numbers to file
+        for entry in differing_acc_numbers_list:
             diff_file.write(f"{entry}\n")
 
         diff_file.write("\n\nFiles still without any accession number:\n")
-        for filename in files_without_acc_no:
-            diff_file.write(f"- {filename}\n")
+        for entry in files_without_any_acc_no:
+            diff_file.write(f"{entry}\n")
 
 
     with open('docs/prefix-map.json', 'w', encoding='utf-8') as f:
@@ -171,9 +161,8 @@ def create_prefix_map_v6():
         f"Files with a prefix: {files_with_prefix}\n"
         f"Files missing 'Acc No.': {missing_acc_no_1_count}\n"
         f"Files missing 'Accession No.': {missing_acc_no_2_count}\n"
-        f"Files with differing accession numbers: {differences_count}\n"
-        f"Files where 'NAK' was supplied by system: {len(nak_supplied_files)}\n"
-        f"Files still without any accession number: {total_files_processed - files_with_prefix}\n"
+        f"Files with differing accession numbers: {len(differing_acc_numbers_list)}\n"
+        f"Files without any accession number: {len(files_without_any_acc_no)}\n"
     )
     with open('accession_number_problems.txt', 'a', encoding='utf-8') as diff_file:
         diff_file.write(summary)
