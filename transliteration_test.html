@@ -1,0 +1,115 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Transliteration Test</title>
+    <link rel="stylesheet" type="text/css" href="https://cdn.datatables.net/1.11.5/css/jquery.dataTables.css">
+    <script src="https://cdn.jsdelivr.net/npm/@indic-transliteration/sanscript/sanscript.min.js"></script>
+    <style>
+        body { font-family: sans-serif; }
+        table { border-collapse: collapse; width: 100%; }
+        th, td { border: 1px solid #ddd; padding: 8px; text-align: left; }
+        th { background-color: #f2f2f2; }
+    </style>
+</head>
+<body>
+    <h1>Transliteration Test for "भिक्षुणी"</h1>
+
+    <div id="results"></div>
+
+    <script type="text/javascript" charset="utf8" src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+    <script type="text/javascript" charset="utf8" src="https://cdn.datatables.net/1.11.5/js/jquery.dataTables.js"></script>
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            const input = "भिक्षुणी";
+            const outputDiv = document.getElementById('results');
+
+            const allSchemes = {
+                "Roman Schemes": [
+                    "cyrillic", "hk", "iast", "iso", "itrans", "itrans_dravidian", "kolkata", "slp1", "velthuis", "wx"
+                ],
+                "Brahmic Schemes": [
+                    "ahom", "assamese", "avestan", "balinese", "bengali", "bhaisuki", "brahmi", "brahmi_tamil", "burmese",
+                    "chakma", "cham", "devanagari", "dogra", "gondi_gunjala", "gondi_masaram", "grantha", "grantha_pandya",
+                    "gujarati", "gurmukhi", "javanese", "kannada", "khamti_shan", "kharoshti", "khmer", "khom_thai",
+                    "khudawadi", "lao", "lao_pali", "lepcha", "limbu", "mahajani", "malayalam", "manipuri", "marchen",
+                    "modi", "mon", "mro", "multani", "newa", "ol_chiki", "oriya", "persian_old", "phags_pa", "ranjana",
+                    "rejang", "rohingya", "sanskritocr", "shan", "sharada", "siddham", "sinhala", "sora_sompeng",
+                    "sundanese", "syloti_nagari", "tagalog", "tagbanwa", "tai_laing", "takri", "tamil", "tamil_extended",
+                    "tamil_superscripted", "telugu", "thai", "tibetan", "tirhuta_maithili", "urdu", "vattelutu",
+                    "wancho", "warang_citi", "zanbazar_square"
+                ]
+            };
+
+            /*
+            Non-working Roman Schemes:
+            kolkata
+            */
+
+            /*
+            Non-working Brahmic Schemes:
+            ahom, avestan, bhaisuki, brahmi, brahmi_tamil, burmese,
+            chakma, cham, dogra, gondi_gunjala, gondi_masaram, grantha, grantha_pandya,
+            gurmukhi, khamti_shan, kharoshti, khom_thai,
+            khudawadi, lao, lepcha, limbu, mahajani, manipuri, marchen,
+            modi, mro, multani, newa, ol_chiki, persian_old, phags_pa,
+            rejang, rohingya, sanskritocr, shan, sharada, siddham, sora_sompeng,
+            sundanese, syloti_nagari, tagalog, tagbanwa, tai_laing, takri,
+            tamil_extended, tamil_superscripted, telugu, thai, tibetan, tirhuta_maithili, urdu, vattelutu,
+            wancho, warang_citi, zanbazar_square
+            */
+
+            let results = [];
+
+            for (const group in allSchemes) {
+                allSchemes[group].forEach(scheme => {
+                    let transliteratedText;
+                    let transliteratedToIast;
+                    try {
+                        transliteratedText = Sanscript.t(input, 'devanagari', scheme);
+                        try {
+                            transliteratedToIast = Sanscript.t(transliteratedText, scheme, 'iast');
+                        } catch (e) {
+                            if (e.message.includes('not fully implemented')) {
+                                transliteratedToIast = 'Reverse transliteration not supported';
+                            } else {
+                                transliteratedToIast = `Error: ${e.message}`;
+                            }
+                        }
+                    } catch (e) {
+                        transliteratedText = `Error: ${e.message}`;
+                        transliteratedToIast = `Error: ${e.message}`;
+                    }
+                    results.push({
+                        schemeType: group,
+                        schemeName: scheme,
+                        transliteratedOutput: transliteratedText,
+                        transliteratedToIast: transliteratedToIast
+                    });
+                });
+            }
+
+            const renderTable = (data) => {
+                let html = '<table id="transliteration-table">';
+                html += '<thead><tr><th>Scheme Type</th><th>Scheme Name</th><th>Transliterated Output</th><th>Transliterated to IAST</th></tr></thead><tbody>';
+
+                data.forEach(row => {
+                    html += `<tr><td>${row.schemeType}</td><td>${row.schemeName}</td><td>${row.transliteratedOutput}</td><td>${row.transliteratedToIast}</td></tr>`;
+                });
+
+                html += '</tbody></table>';
+                outputDiv.innerHTML = html;
+
+                // Initialize DataTable with default sort on the last column
+                $('#transliteration-table').DataTable({
+                    "order": [[3, "asc"]]
+                });
+            };
+
+            // Initial render
+            renderTable(results);
+        });
+    </script>
+</body>
+</html>

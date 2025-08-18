@@ -1,0 +1,28 @@
+name: Build and Deploy
+
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+
+      - name: Download and extract Pagefind
+        run: |
+          curl -L https://github.com/CloudCannon/pagefind/releases/download/v1.1.0/pagefind-v1.1.0-x86_64-unknown-linux-musl.tar.gz -o pagefind.tar.gz
+          tar -xzf pagefind.tar.gz
+
+      - name: Run Pagefind
+        run: ./pagefind --source docs --bundle-dir docs/pagefind
+
+      - name: Deploy to GitHub Pages
+        uses: peaceiris/actions-gh-pages@v3
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          publish_dir: docs
